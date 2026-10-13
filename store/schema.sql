@@ -1,0 +1,44 @@
+CREATE TABLE IF NOT EXISTS ticks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_key TEXT NOT NULL,
+  sport TEXT NOT NULL,
+  home TEXT NOT NULL,
+  away TEXT NOT NULL,
+  book TEXT NOT NULL,
+  outcome TEXT NOT NULL,
+  price REAL NOT NULL,
+  fetched_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS opportunities (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  event_key TEXT NOT NULL,
+  sport TEXT NOT NULL,
+  legs TEXT NOT NULL,
+  arb_sum REAL NOT NULL,
+  profit_pct REAL NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS virtual_wallets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  balance REAL NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS virtual_wallet_ledger (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  wallet_id INTEGER NOT NULL,
+  kind TEXT NOT NULL,
+  amount REAL NOT NULL,
+  balance_after REAL NOT NULL,
+  created_at INTEGER NOT NULL,
+  FOREIGN KEY (wallet_id) REFERENCES virtual_wallets(id)
+);
+CREATE TABLE IF NOT EXISTS paper_bets (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  wallet_id INTEGER NOT NULL,
+  event_key TEXT NOT NULL,
+  legs TEXT NOT NULL,
+  stake_total REAL NOT NULL,
+  status TEXT NOT NULL DEFAULT 'OPEN',
+  placed_at INTEGER NOT NULL,
+  FOREIGN KEY (wallet_id) REFERENCES virtual_wallets(id)
+);

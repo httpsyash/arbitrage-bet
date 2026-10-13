@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Arb Betting — Full Dashboard</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; margin: 0; background: #0f1420; color: #e8ecf4; }
+  header { padding: 12px 20px; background: #161d30; border-bottom: 1px solid #2a3454; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0 8px 0 0; }
+  nav button { margin-right: 6px; }
+  nav button.active { background: #7CFC9A; color: #06210f; border-color: #7CFC9A; }
+  .pill { background: #222c4d; border: 1px solid #33406b; border-radius: 20px; padding: 4px 12px; font-size: 13px; }
+  .pill b { color: #7CFC9A; }
+  main { padding: 16px 20px; max-width: 1150px; margin: 0 auto; }
+  .card { background: #161d30; border: 1px solid #2a3454; border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  input, select, button { background: #0f1420; color: #e8ecf4; border: 1px solid #33406b; border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+  button { background: #2f6bff; border-color: #2f6bff; cursor: pointer; font-weight: 600; }
+  button.ghost { background: transparent; }
+  button.small { padding: 4px 8px; font-size: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #2a3454; vertical-align: top; }
+  th { color: #9aa6c7; font-size: 12px; text-transform: uppercase; }
+  .arb { color: #7CFC9A; font-weight: 700; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: 700; }
+  .badge.yes { background: #0e3d22; color: #7CFC9A; border: 1px solid #1f7a44; }
+  .badge.no { background: #2a2f45; color: #8b94ad; border: 1px solid #3a4266; }
+  .muted { color: #9aa6c7; font-size: 13px; }
+  .tab { display: none; } .tab.on { display: block; }
+  #status { font-size: 13px; color: #9aa6c7; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Arb Betting</h1>
+  <nav>
+    <button data-tab="markets" class="active">Markets</button>
+    <button data-tab="bets">My Bets</button>
+    <button data-tab="opps">Opportunities</button>
+    <button data-tab="ledger">Wallet</button>
+  </nav>
+  <span class="pill">Wallet: <select id="walletSel"></select> <b id="walletBal">—</b></span>
+  <span class="pill" id="statPill">— events</span>
+  <span id="status">loading…</span>
+</header>
+<main>
+  <section id="tab-markets" class="tab on">
+    <div class="card"><div class="row">
+      <input id="topupAmt" type="number" min="1" step="any" placeholder="Add virtual money" style="width:200px">
+      <button id="topupBtn" class="small">Add funds</button>
+      <input id="bankroll" type="number" value="10000" min="100" step="100" style="width:110px" title="Bankroll per arb">
+      <select id="minProfit"><option value="0">All markets</option><option value="1.5" selected>Arbs ≥ 1.5%</option><option value="1">Arbs ≥ 1%</option><option value="3">Arbs ≥ 3%</option></select>
+      <select id="sportFilter"><option value="">All sports</option></select>
+      <input id="search" placeholder="Search team…" style="flex:1;min-width:160px">
+      <button id="refreshBtn" class="ghost small">Refresh</button>
+    </div></div>
+    <div id="events"></div>
+  </section>
+  <section id="tab-bets" class="tab">
+    <div class="card"><div class="row"><b>My paper bets</b><button id="reloadBets" class="ghost small">Reload</button>
+    <span class="muted">Settle WON with payout, VOID refunds stake, LOST keeps stake lost.</span></div>
+    <div id="bets"></div></div>
+  </section>
+  <section id="tab-opps" class="tab">
+    <div class="card"><div class="row"><b>Opportunity log</b><button id="reloadOpps" class="ghost small">Reload</button></div><div id="opps"></div></div>
+  </section>
+  <section id="tab-ledger" class="tab">
+    <div class="card"><div class="row">
+      <input id="newWalletName" placeholder="New wallet name" style="width:180px">
+      <button id="newWalletBtn" class="ghost small">Create</button>
+      <input id="resetAmt" type="number" min="0" step="any" placeholder="Reset to…" style="width:140px">
+      <button id="resetBtn" class="ghost small">Reset wallet</button>
+      <button id="reloadLedger" class="ghost small">Reload ledger</button>
+    </div><div id="ledger"></div></div>
+  </section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let MARKETS = [], WALLETS = [];
+async function api(path, opts) { const r = await fetch(path, opts); const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j; }
+function stakes(bankroll, odds) { const s = odds.reduce((a, o) => a + 1 / o, 0); return odds.map(o => Math.round(bankroll * (1 / o) / s / 10) * 10); }
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('nav button').forEach(x => x.classList.remove('active'));
+  b.classList.add('active');
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  $('tab-' + b.dataset.tab).classList.add('on');
+  if (b.dataset.tab === 'bets') loadBets(); if (b.dataset.tab === 'opps') loadOpps(); if (b.dataset.tab === 'ledger') loadLedger();
+});
+async function loadWallets() {
+  WALLETS = await api('/wallets');
+  if (!WALLETS.length) { await api('/wallets', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: 'main', balance: 100000})}); WALLETS = await api('/wallets'); }
+  $('walletSel').innerHTML = WALLETS.map(w => `<option value="${w.id}">${w.name} (#${w.id})</option>`).join('');
+  updateBal();
+}
+function updateBal() { const w = WALLETS.find(x => String(x.id) === $('walletSel').value) || WALLETS[0]; if (w) $('walletBal').textContent = Number(w.balance).toLocaleString(); }
+async function loadMarkets() {
+  $('status').textContent = 'refreshing…';
+  MARKETS = await api('/markets');
+  const st = await api('/stats');
+  $('statPill').textContent = `${st.events} events · ${st.arbs} arbs · best ${Number(st.best_profit).toFixed(2)}%`;
+  const sports = [...new Set(MARKETS.map(m => m.sport))], sf = $('sportFilter'), cur = sf.value;
+  sf.innerHTML = '<option value="">All sports</option>' + sports.map(s => `<option>${s}</option>`).join('');
+  if (sports.includes(cur)) sf.value = cur;
+  render(); $('status').textContent = 'updated ' + new Date().toLocaleTimeString();
+}
+function render() {
+  const q = $('search').value.toLowerCase(), sport = $('sportFilter').value, minP = parseFloat($('minProfit').value), bankroll = parseFloat($('bankroll').value) || 10000;
+  const box = $('events'); box.innerHTML = '';
+  MARKETS.filter(m => m.profit_pct >= minP).filter(m => !sport || m.sport === sport)
+    .filter(m => !q || (m.home + ' ' + m.away + ' ' + m.event_key).toLowerCase().includes(q))
+    .forEach(m => {
+      const outcomes = Object.keys(m.best), odds = outcomes.map(o => m.best[o].price), st = stakes(bankroll, odds);
+      const div = document.createElement('div'); div.className = 'card';
+      div.innerHTML = `<div class="row" style="justify-content:space-between">
+          <div><b>${m.home} vs ${m.away}</b> <span class="muted">${m.sport} · ${m.event_key}</span></div>
+          <span class="badge ${m.is_arb ? 'yes' : 'no'}">${m.is_arb ? 'SUREBET ' + m.profit_pct.toFixed(2) + '%' : m.profit_pct.toFixed(2) + '%'} · Σ ${m.arb_sum.toFixed(4)}</span></div>
+        <table><tr><th>Outcome (team)</th><th>Best</th><th>Book</th><th>Stake</th><th>All books</th></tr>
+        ${outcomes.map((o, i) => `<tr><td>${o}</td><td class="arb">${m.best[o].price}</td><td>${m.best[o].book}</td><td>${st[i].toLocaleString()}</td><td class="muted">${m.quotes.filter(t => t.outcome === o).map(t => t.book + ' ' + t.price).join(', ')}</td></tr>`).join('')}</table>
+        <div class="row" style="margin-top:8px">
+          <span class="muted">Expected return on ${bankroll.toLocaleString()}: ${Math.min(...st.map((s, i) => s * odds[i])).toLocaleString()}</span>
+          <button class="small" data-bet="${m.event_key}" ${m.is_arb ? '' : 'disabled'}>Place paper bet (${bankroll.toLocaleString()})</button>
+        </div>`;
+      box.appendChild(div);
+    });
+  if (!box.children.length) box.innerHTML = '<div class="card muted">No events match the filter. Set filter to All markets.</div>';
+  box.querySelectorAll('[data-bet]').forEach(b => b.onclick = () => placeBet(b.dataset.bet));
+}
+async function placeBet(eventKey) {
+  const m = MARKETS.find(x => x.event_key === eventKey);
+  const bankroll = parseFloat($('bankroll').value) || 10000;
+  const outcomes = Object.keys(m.best), odds = outcomes.map(o => m.best[o].price), st = stakes(bankroll, odds);
+  const legs = outcomes.map((o, i) => ({outcome: o, price: m.best[o].price, book: m.best[o].book, stake: st[i]}));
+  try {
+    const r = await api('/paper-bets', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({wallet_id: Number($('walletSel').value), event_key: eventKey, legs, stake_total: st.reduce((a, b) => a + b, 0)})});
+    WALLETS = await api('/wallets'); updateBal(); alert('Paper bet #' + r.bet_id + ' placed on ' + eventKey);
+  } catch (e) { alert('Bet failed: ' + e.message); }
+}
+async function loadBets() {
+  const wid = $('walletSel').value;
+  const bets = await api('/paper-bets?wallet_id=' + wid);
+  $('bets').innerHTML = bets.length ? `<table><tr><th>ID</th><th>Event</th><th>Legs</th><th>Stake</th><th>Status</th><th>Settle</th></tr>` +
+    bets.map(b => { const legs = JSON.parse(b.legs); return `<tr><td>${b.id}</td><td>${b.event_key}</td><td class="muted">${legs.map(l => l.outcome + ' ' + l.price + ' @' + l.book + ' (' + l.stake + ')').join('<br>')}</td><td>${b.stake_total}</td><td>${b.status}</td><td>${b.status === 'OPEN' ? `<button class="small" onclick="settleBet(${b.id},'WON')">WON</button> <button class="small ghost" onclick="settleBet(${b.id},'VOID')">VOID</button> <button class="small ghost" onclick="settleBet(${b.id},'LOST')">LOST</button>` : '—'}</td></tr>`; }).join('') + `</table>`
+    : '<span class="muted">No paper bets yet — place one from Markets.</span>';
+}
+async function settleBet(id, result) {
+  let payout = 0;
+  if (result === 'WON') { const v = prompt('Payout credited (e.g. total return)?', '10300'); if (v === null) return; payout = parseFloat(v) || 0; }
+  await api('/paper-bets/' + id + '/settle', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({result, payout})});
+  WALLETS = await api('/wallets'); updateBal(); loadBets();
+}
+async function loadOpps() {
+  const opps = await api('/opportunities?limit=50');
+  $('opps').innerHTML = opps.length ? `<table><tr><th>ID</th><th>Event</th><th>Sport</th><th>Profit</th><th>Legs</th></tr>` +
+    opps.map(o => `<tr><td>${o.id}</td><td>${o.event_key}</td><td>${o.sport}</td><td class="arb">${Number(o.profit_pct).toFixed(2)}%</td><td class="muted">${o.legs}</td></tr>`).join('') + `</table>` : '<span class="muted">None yet.</span>';
+}
+async function loadLedger() {
+  const rows = await api('/ledger?wallet_id=' + $('walletSel').value);
+  $('ledger').innerHTML = rows.length ? `<table><tr><th>ID</th><th>Type</th><th>Amount</th><th>Balance after</th></tr>` +
+    rows.map(r => `<tr><td>${r.id}</td><td>${r.kind}</td><td>${r.amount}</td><td>${r.balance_after}</td></tr>`).join('') + `</table>` : '<span class="muted">Empty.</span>';
+}
+window.settleBet = settleBet;
+$('topupBtn').onclick = async () => { const amt = parseFloat($('topupAmt').value); if (!(amt > 0)) return alert('Enter amount > 0'); const r = await api(`/wallets/${$('walletSel').value}/topup`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({amount: amt})}); WALLETS = await api('/wallets'); updateBal(); $('topupAmt').value = ''; alert('New balance: ' + Number(r.balance).toLocaleString()); };
+$('newWalletBtn').onclick = async () => { await api('/wallets', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({name: $('newWalletName').value || 'wallet', balance: 0})}); $('newWalletName').value = ''; await loadWallets(); };
+$('resetBtn').onclick = async () => { const amt = parseFloat($('resetAmt').value || '0'); const r = await api(`/wallets/${$('walletSel').value}/reset`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({amount: amt})}); WALLETS = await api('/wallets'); updateBal(); alert('Reset to ' + r.balance); };
+$('walletSel').onchange = () => { updateBal(); };
+$('refreshBtn').onclick = loadMarkets; $('reloadBets').onclick = loadBets; $('reloadOpps').onclick = loadOpps; $('reloadLedger').onclick = loadLedger;
+['search', 'sportFilter', 'minProfit', 'bankroll'].forEach(id => $(id).oninput = render);
+(async () => { await loadWallets(); await loadMarkets(); setInterval(loadMarkets, 15000); })().catch(e => $('status').textContent = 'error: ' + e.message);
+</script>
+</body>
+</html>

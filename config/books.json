@@ -1,0 +1,19 @@
+{
+  "books": [
+    {"key": "bet365", "name": "Bet365", "commission": 0.0, "type": "soft"},
+    {"key": "pinnacle", "name": "Pinnacle", "commission": 0.0, "type": "sharp"},
+    {"key": "1xbet", "name": "1xBet", "commission": 0.0, "type": "soft"},
+    {"key": "betfair", "name": "Betfair Exchange", "commission": 0.05, "type": "exchange"},
+    {"key": "unibet", "name": "Unibet", "commission": 0.0, "type": "soft"},
+    {"key": "williamhill", "name": "William Hill", "commission": 0.0, "type": "soft"}
+  ],
+  "sports": ["soccer_epl", "tennis_atp", "cricket_ipl"],
+  "settings": {
+    "min_profit_pct": 1.5,
+    "max_odds_age_sec": 15,
+    "poll_interval_sec": 10,
+    "default_virtual_bankroll": 100000,
+    "default_stake_per_arb": 10000,
+    "slippage_pct": 0.5
+  }
+}

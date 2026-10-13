@@ -1,0 +1,18 @@
+{
+  "Mumbai Indians": ["MI", "Mumbai", "Mumbai Indians"],
+  "Chennai Super Kings": ["CSK", "Chennai", "Chennai Super Kings"],
+  "Royal Challengers Bengaluru": ["RCB", "Royal Challengers Bengaluru", "Bangalore"],
+  "Kolkata Knight Riders": ["KKR", "Kolkata Knight Riders", "Kolkata"],
+  "Sunrisers Hyderabad": ["SRH", "Sunrisers Hyderabad", "Hyderabad"],
+  "Delhi Capitals": ["DC", "Delhi Capitals", "Delhi"],
+  "Arsenal": ["Arsenal", "ARS"],
+  "Chelsea": ["Chelsea", "CHE"],
+  "Man City": ["Man City", "Manchester City"],
+  "Liverpool": ["Liverpool", "LIV"],
+  "Man United": ["Man United", "Manchester United", "MUN"],
+  "Tottenham": ["Tottenham", "Spurs", "TOT"],
+  "Novak Djokovic": ["Djokovic", "N Djokovic", "Novak Djokovic"],
+  "Carlos Alcaraz": ["Alcaraz", "C Alcaraz", "Carlos Alcaraz"],
+  "Jannik Sinner": ["Sinner", "J Sinner", "Jannik Sinner"],
+  "Daniil Medvedev": ["Medvedev", "D Medvedev", "Daniil Medvedev"]
+}
